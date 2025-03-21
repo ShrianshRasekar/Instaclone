@@ -1,5 +1,9 @@
 package com.UserProfile.service;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 
@@ -9,10 +13,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import com.UserProfile.dao.ProfileDAO;
+import com.UserProfile.dao.ProfilePictureRepository;
 import com.UserProfile.exception.ProfileNotFoundException;
 
 import jakarta.transaction.Transactional;
 
+import com.UserProfile.entity.ProfilePicture;
 import com.UserProfile.entity.UserProfile;
 
 @Service
@@ -20,6 +26,9 @@ public class UserProfileServiceImpl implements ProfileService {
 
 	@Autowired
 	private ProfileDAO Profiledao;
+
+	@Autowired
+	private ProfilePictureRepository profilePictureRepository; // ✅ Correct repository
 
 	// ALL GET
 	// requests----------------------------------------------------------------GET----
@@ -42,15 +51,16 @@ public class UserProfileServiceImpl implements ProfileService {
 	}
 
 	public List<String> isUserProfilenameExist(String ename) {
-		if(Profiledao.isUserProfilenameExist(ename).isEmpty()) { 
-			throw new ProfileNotFoundException("UserProfile not exist with UserProfilename '" +ename + "' "); 
-			}
+		if (Profiledao.isUserProfilenameExist(ename).isEmpty()) {
+			throw new ProfileNotFoundException("UserProfile not exist with UserProfilename '" + ename + "' ");
+		}
 		List<String> u = Profiledao.isUserProfilenameExist(ename);
 		/*
 		 * List<String> UserProfilenames = u.stream().filter(e -> //
 		 * e.equals(e.getUname()).collect(Collectors.toList()));
 		 */
-	  return u; }
+		return u;
+	}
 
 	public boolean isUserProfilenameExistAlready(String ename) {
 		String s = Profiledao.isUserProfilenameExistAlready(ename);
@@ -60,14 +70,14 @@ public class UserProfileServiceImpl implements ProfileService {
 		if (s.equals(ename)) {
 			return true;
 		} // List<String> UserProfilenames =
-		//UserProfile.stream().filter(e -> //
-		//e.equals(e.getUname()).collect(Collectors.toList()));
+			// UserProfile.stream().filter(e -> //
+			// e.equals(e.getUname()).collect(Collectors.toList()));
 		return false;
 	}
-	
+
 	@Override
 	public UserProfile getUserProfileByUname(String uname) {
-		
+
 		System.out.println("called getUserProfileByUsername from DATABASE");
 		return Profiledao.getUserProfileByUsername(uname);
 	}
@@ -127,39 +137,38 @@ public class UserProfileServiceImpl implements ProfileService {
 	public UserProfile updateUserProfile(UserProfile UserProfile) {
 		// TODO Auto-generated method stub
 		Profiledao.save(UserProfile);
-		
+
 		return UserProfile;
 	}
 	// ALL Patch
 	// requests-----------------------------------------------------------------Patch---
-	
+
 	@Transactional
 	@Override
 	public UserProfile updateUserProfileBio(String username, String bio) {
-		if(Profiledao.isUserProfilenameExist(username).isEmpty()) { 
-			throw new ProfileNotFoundException("UserProfile not exist with UserProfilename '" +username + "' "); 
-			}
-		Profiledao.updateUserProfileBio( username, bio);
+		if (Profiledao.isUserProfilenameExist(username).isEmpty()) {
+			throw new ProfileNotFoundException("UserProfile not exist with UserProfilename '" + username + "' ");
+		}
+		Profiledao.updateUserProfileBio(username, bio);
 		return Profiledao.getUserProfileByUsername(username);
 	}
-	
+
 	@Transactional
 	@CachePut(key = "#uname", value = "UserProfile")
 	@Override
 	public UserProfile updateUserProfileFollowers(String uname, Long count) {
-	    List<String> u = Profiledao.isUserProfilenameExist(uname);
-	    
-	    if (!u.isEmpty()) {
-	        Profiledao.addFollower(uname, count);
+		List<String> u = Profiledao.isUserProfilenameExist(uname);
 
-	        // Fetch fresh data from DB and return it to update cache
-	        return Profiledao.getUserProfileByUsername(uname);
-	    } else {
-	        throw new ProfileNotFoundException("UserProfile does not exist with UserName '" + uname + "'"); 
-	    }
+		if (!u.isEmpty()) {
+			Profiledao.addFollower(uname, count);
+
+			// Fetch fresh data from DB and return it to update cache
+			return Profiledao.getUserProfileByUsername(uname);
+		} else {
+			throw new ProfileNotFoundException("UserProfile does not exist with UserName '" + uname + "'");
+		}
 	}
 
-		
 	// ALL DELETE
 	// requests----------------------------------------------------------------DELETE----
 	@Override
@@ -182,13 +191,52 @@ public class UserProfileServiceImpl implements ProfileService {
 		if (Profiledao.isUserProfilenameExistAlready(uname).isEmpty()) {
 			throw new ProfileNotFoundException("UserProfile not exist with id " + uname);
 		}
-		
+
 		Profiledao.deleteByUsername(uname);
 		return "Deleted UserProfile with id " + uname;
 	}
 
-	
-	
-	
+	@Transactional
+	@Override
+	public void updateUserProfilePicture(String uname, byte[] profilePicture) {
+		if (Profiledao.isUserProfilenameExistAlready(uname) == null) {
+			throw new ProfileNotFoundException("UserProfile does not exist with username '" + uname + "'");
+		}
+
+		// Define the file path inside the uploads folder
+		String directoryPath = "uploads/";
+		String fileName = uname + "_profile.jpg";
+		Path filePath = Paths.get(directoryPath + fileName);
+
+		try {
+			// Ensure the directory exists
+			Files.createDirectories(Paths.get(directoryPath));
+			// Write the image to the directory
+			Files.write(filePath, profilePicture);
+		} catch (IOException e) {
+			throw new RuntimeException("Error saving profile picture", e);
+		}
+
+		// Save only the file path in the database
+		Profiledao.updateProfilePicturePath(uname, filePath.toString());
+	}
+
+	@Override
+	public void saveProfilePicture(ProfilePicture profilePicture) {
+		profilePictureRepository.save(profilePicture);
+	}
+
+	@Override
+	public byte[] getUserProfilePicture(String uname) {
+		String filePath = Profiledao.getProfilePicturePathByUsername(uname);
+		if (filePath == null || filePath.isEmpty()) {
+			throw new ProfileNotFoundException("Profile picture not found for username '" + uname + "'");
+		}
+		try {
+			return Files.readAllBytes(Paths.get(filePath));
+		} catch (IOException e) {
+			throw new RuntimeException("Error reading profile picture", e);
+		}
+	}
 
 }
