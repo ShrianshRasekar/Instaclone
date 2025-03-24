@@ -81,6 +81,21 @@ public class UserProfileServiceImpl implements ProfileService {
 		System.out.println("called getUserProfileByUsername from DATABASE");
 		return Profiledao.getUserProfileByUsername(uname);
 	}
+	
+	
+	public byte[] getUserProfilePicture(String uname) {
+	    Optional<String> filePathOpt = Optional.ofNullable(profilePictureRepository.getProfilePicturePathByUsername(uname));
+
+	    String filePath = filePathOpt.orElseThrow(() -> 
+	        new ProfileNotFoundException("Profile picture not found for username: " + uname));
+
+	    Path path = Paths.get(filePath);
+	    try {
+	        return Files.readAllBytes(path);
+	    } catch (IOException e) {
+	        throw new RuntimeException("Error reading profile picture file", e);
+	    }
+	}
 
 	/*
 	 * public List<String> getAllUserProfilenames() { if
@@ -218,7 +233,7 @@ public class UserProfileServiceImpl implements ProfileService {
 		}
 
 		// Save only the file path in the database
-		Profiledao.updateProfilePicturePath(uname, filePath.toString());
+		profilePictureRepository.updateProfilePicturePath(uname, filePath.toString());
 	}
 
 	@Override
@@ -226,17 +241,6 @@ public class UserProfileServiceImpl implements ProfileService {
 		profilePictureRepository.save(profilePicture);
 	}
 
-	@Override
-	public byte[] getUserProfilePicture(String uname) {
-		String filePath = Profiledao.getProfilePicturePathByUsername(uname);
-		if (filePath == null || filePath.isEmpty()) {
-			throw new ProfileNotFoundException("Profile picture not found for username '" + uname + "'");
-		}
-		try {
-			return Files.readAllBytes(Paths.get(filePath));
-		} catch (IOException e) {
-			throw new RuntimeException("Error reading profile picture", e);
-		}
-	}
+
 
 }

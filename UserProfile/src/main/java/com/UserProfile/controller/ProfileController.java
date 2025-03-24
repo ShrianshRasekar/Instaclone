@@ -1,9 +1,19 @@
 package com.UserProfile.controller;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +21,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,7 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.UserProfile.entity.ProfilePicture;
 import com.UserProfile.entity.UserProfile;
-import com.UserProfile.exception.ProfileNotFoundException;
+import com.UserProfile.exception.ProfileDetailAlreadyExist;
 import com.UserProfile.service.ProfileService;
 
 import jakarta.annotation.PostConstruct;
@@ -35,6 +46,8 @@ public class ProfileController {
 	private ProfileService profileService;
 
 	private static final String UPLOAD_DIR = System.getProperty("user.dir") + File.separator + "uploads";
+	
+	private final String uploadDir = "uploads/";
 
 	static {
 		File directory = new File(UPLOAD_DIR);
@@ -56,65 +69,120 @@ public class ProfileController {
 	@Cacheable(key = "#pid", value = "UserProfile")
 	public ResponseEntity<UserProfile> getUserProfileById(@PathVariable Long pid) {
 		logger.info("Fetching user profile with ID: {}", pid);
-		UserProfile user = profileService.getUserProfile(pid);
-		return user != null ? ResponseEntity.ok(user) : ResponseEntity.notFound().build();
+
+		UserProfile userProfile = profileService.getUserProfile(pid);
+
+		if (userProfile == null) {
+			return ResponseEntity.notFound().build();
+		}
+
+		// Set profile picture URL if exists
+		if (userProfile.getProfilePicture1() != null) {
+			String imageUrl = "/userprofile/profilePicture/" + userProfile.getUname();
+			userProfile.getProfilePicture1().setFilePath(imageUrl);
+		}
+
+		return ResponseEntity.ok(userProfile);
 	}
 
-	@GetMapping(path = "/{uname}", produces = MediaType.APPLICATION_JSON_VALUE)
-	@Cacheable(key = "#uname", value = "UserProfile", unless = "#result.followers > 200")
+	@GetMapping(path = "/uname/{uname}", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Cacheable(key = "#uname", value = "UserProfile", unless = "#result?.body?.followers != null && #result.body.followers > 200")
 	public ResponseEntity<UserProfile> getUserProfileByUsername(@PathVariable String uname) {
 		logger.info("Fetching user profile with username: {}", uname);
+
 		UserProfile user = profileService.getUserProfileByUname(uname);
-		return user != null ? ResponseEntity.ok(user) : ResponseEntity.notFound().build();
+
+		if (user == null) {
+			return ResponseEntity.notFound().build();
+		}
+
+		// Set profile picture URL if exists
+		if (user.getProfilePicture1() != null) {
+			String imageUrl ="/userprofile/getImage/" +user.getProfilePicture1().getFileName();
+			user.getProfilePicture1().setFilePath(imageUrl);
+		}
+
+		return ResponseEntity.ok(user);
 	}
 
 	@PostMapping("/addProfileInfo")
 	public ResponseEntity<String> createUserProfile(@RequestParam("file") MultipartFile file,
 			@RequestParam("uname") String uname, @RequestParam("fullName") String fullName,
 			@RequestParam("bio") String bio, @RequestParam("posts") int posts, @RequestParam("followers") int followers,
-			@RequestParam("following") int following, @RequestParam("uid") int uid) {
+			@RequestParam("following") int following, @RequestParam(value = "uid", required = false) Integer uid) { // Made
+																													// uid
+																													// Optional
+
+		if (profileService.isUserProfilenameExistAlready(uname)) {
+			throw new ProfileDetailAlreadyExist("UserProfile already exists with username " + uname);
+		}
+
+		// Validate file type
+		List<String> allowedTypes = Arrays.asList("image/jpeg", "image/png", "image/gif", "image/jpg");
+		if (!allowedTypes.contains(file.getContentType())) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid file type! Only JPG, PNG, GIF allowed.");
+		}
 
 		try {
-			File uploadDir = new File("uploads/");
-			if (!uploadDir.exists()) {
-				uploadDir.mkdirs();
-			}
+			// Define upload directory
+			String uploadDir = System.getProperty("user.dir") + "/uploads";
+			Files.createDirectories(Paths.get(uploadDir)); // Creates directory if not exists
 
-			// Save file locally
-			String filePath = "uploads/" + file.getOriginalFilename();
-			File destinationFile = new File(filePath);
-			file.transferTo(destinationFile);
+			// Generate unique file name
+			String uniqueFileName = file.getOriginalFilename();
+			String filePath = uploadDir + "/" + uniqueFileName;
+
+			// Save file securely
+			Path destinationPath = Paths.get(filePath);
+			Files.copy(file.getInputStream(), destinationPath, StandardCopyOption.REPLACE_EXISTING);
 
 			// Create ProfilePicture entity
 			ProfilePicture profilePicture = new ProfilePicture();
 			profilePicture.setFileName(file.getOriginalFilename());
 			profilePicture.setFilePath(filePath);
 			profilePicture.setFileType(file.getContentType());
-			profileService.saveProfilePicture(profilePicture); // Save profile picture
+
+			// Save profile picture first
+			profileService.saveProfilePicture(profilePicture);
+
+			// Set uid to null if not provided
+			if (uid == null) {
+				uid = 0; // You can also keep it `null` if the database allows it
+			}
 
 			// Create UserProfile entity
-			UserProfile userProfile = new UserProfile(uid, uname, fullName, bio, posts, followers, following,
-					uid, profilePicture);
+			UserProfile userProfile = new UserProfile(uid, uname, fullName, bio, posts, followers, following, uid,
+					profilePicture);
+
+			// Save user profile
 			profileService.addUserProfile(userProfile);
 
 			return ResponseEntity.ok("Profile added successfully with image: " + filePath);
-		} catch (Exception e) {
+
+		} catch (IOException e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 					.body("Failed to upload file: " + e.getMessage());
 		}
 	}
 
-	@GetMapping("/profilePicture/{uname}")
-	public ResponseEntity<byte[]> getProfilePicture(@PathVariable String uname) {
-		try {
-			byte[] imageData = profileService.getUserProfilePicture(uname);
-			return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(imageData);
-		} catch (ProfileNotFoundException e) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
-		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-		}
-	}
+	@GetMapping("/getImage/{fileName}")
+    public ResponseEntity<Resource> getProfilePicture(@PathVariable String fileName) {
+        try {
+            Path filePath = Paths.get(uploadDir).resolve(fileName).normalize();
+            Resource resource = new UrlResource(filePath.toUri());
+
+            if (!resource.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_JPEG)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
+                    .body(resource);
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
 
 	@PostMapping(path = "/addUserProfiles", produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<String> createMultipleProfiles(@Validated @RequestBody List<UserProfile> users) {

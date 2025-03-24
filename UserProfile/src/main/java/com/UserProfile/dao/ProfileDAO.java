@@ -12,7 +12,7 @@ import com.UserProfile.entity.UserProfile;
 
 import jakarta.transaction.Transactional;
 
-@EnableJpaRepositories
+@EnableJpaRepositories(basePackages = "com.UserProfile.dao")
 public interface ProfileDAO extends JpaRepository<UserProfile, Long> {
 
 	public static final String HASH_KEY = "UserProfile";
@@ -44,12 +44,5 @@ public interface ProfileDAO extends JpaRepository<UserProfile, Long> {
 	// ----------------------------- 🔹 NEWLY ADDED METHODS FOR PROFILE PICTURE
 	// -----------------------------
 
-	@Modifying
-	@Transactional
-	@Query("UPDATE UserProfile u SET u.profilePicturePath = :path WHERE u.username = :username")
-	void updateProfilePicturePath(@Param("username") String username, @Param("path") String path);
-
-	@Query("SELECT u.profilePicture.filePath FROM UserProfile u WHERE u.uname = :uname")
-	String getProfilePicturePathByUsername(@Param("uname") String uname);
-
+	
 }
