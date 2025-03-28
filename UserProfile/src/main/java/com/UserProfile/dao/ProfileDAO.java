@@ -12,35 +12,37 @@ import com.UserProfile.entity.UserProfile;
 
 import jakarta.transaction.Transactional;
 
-@EnableJpaRepositories
-public interface ProfileDAO extends JpaRepository<UserProfile, Long>{
-	
-	public static final String HASH_KEY= "UserProfile";
+@EnableJpaRepositories(basePackages = "com.UserProfile.dao")
+public interface ProfileDAO extends JpaRepository<UserProfile, Long> {
+
+	public static final String HASH_KEY = "UserProfile";
 
 	@Query("select uname From UserProfile u WHERE u.uname=:un")
 	public List<String> isUserProfilenameExist(@Param("un") String uname);
-	
+
 	@Query("select uname From UserProfile u WHERE u.uname=:un")
-	public String  isUserProfilenameExistAlready(@Param("un") String uname);
-	
+	public String isUserProfilenameExistAlready(@Param("un") String uname);
+
 	@Query("select u From UserProfile u WHERE u.uname=:un")
 	public UserProfile getUserProfileByUsername(@Param("un") String uname);
-	
+
 	@Modifying
 	@Query("UPDATE UserProfile u SET u.bio=:bio WHERE u.uname=:un ")
-	public int updateUserProfileBio(@Param("un") String username,@Param("bio") String bio);
-	
-	//--------------------------------------------------------------------------------------------------------------Delete
-	
-	@Query("DELETE FROM UserProfile u WHERE u.uname = :un")
-    @Modifying
-    @Transactional
-    void deleteByUsername(@Param("un") String uname);
+	public int updateUserProfileBio(@Param("un") String username, @Param("bio") String bio);
 
-	
+	// --------------------------------------------------------------------------------------------------------------Delete
+
+	@Query("DELETE FROM UserProfile u WHERE u.uname = :un")
 	@Modifying
-	@Query("UPDATE UserProfile u SET u.followers =u.followers + :count WHERE u.uname = :uname AND u.followers < 1000")
-	public void addFollower(@Param("uname")String uname,@Param("count")Long count);
-	
+	@Transactional
+	void deleteByUsername(@Param("un") String uname);
+
+	@Modifying
+	@Query("UPDATE UserProfile u SET u.followers = u.followers + :count WHERE u.uname = :uname AND u.followers < 1000")
+	public void addFollower(@Param("uname") String uname, @Param("count") Long count);
+
+	// ----------------------------- 🔹 NEWLY ADDED METHODS FOR PROFILE PICTURE
+	// -----------------------------
+
 	
 }

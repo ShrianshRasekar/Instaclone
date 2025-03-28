@@ -1,8 +1,15 @@
 package com.UserProfile.entity;
 
+import java.util.Arrays;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -12,7 +19,7 @@ public class UserProfile {
 	@jakarta.persistence.Id
 	@GeneratedValue(strategy = GenerationType.SEQUENCE)
 	private long pid;
-	
+
 	private String uname;
 
 	/*
@@ -21,24 +28,37 @@ public class UserProfile {
 	 * @Size(min=2,message = "FullName must have atleast 2 characters")
 	 */
 	private String fullName;
-	
+
 	private String bio;
-	
+
 	private long posts;
-	
+
 	private long followers;
-	
+
 	private long following;
-	
+
 	private long uid;
-	
+
+	@OneToOne(cascade = CascadeType.ALL)
+	@JoinColumn(name = "profile_picture_id", referencedColumnName = "id")
+	private ProfilePicture profilePicture;
+
+	// Getters and Setters
+	public ProfilePicture getProfilePicture1() {
+		return profilePicture;
+	}
+
+	public void setProfilePicture(ProfilePicture profilePicture) {
+		this.profilePicture = profilePicture;
+	}
+
 	public UserProfile() {
 		super();
 		// TODO Auto-generated constructor stub
 	}
-	
-	public UserProfile(long pid, String uname, String fullName, String bio, long posts, long followers,
-			long following,long uid) {
+
+	public UserProfile(long pid, String uname, String fullName, String bio, long posts, long followers, long following,
+			long uid, ProfilePicture profilePicture) {
 		super();
 		this.pid = pid;
 		this.uname = uname;
@@ -48,9 +68,8 @@ public class UserProfile {
 		this.followers = followers;
 		this.following = following;
 		this.uid = uid;
+		this.profilePicture = profilePicture;
 	}
-
-	
 
 	public long getPid() {
 		return pid;
@@ -119,9 +138,8 @@ public class UserProfile {
 	@Override
 	public String toString() {
 		return "UserProfile [pid=" + pid + ", uname=" + uname + ", fullName=" + fullName + ", bio=" + bio + ", posts="
-				+ posts + ", followers=" + followers + ", following=" + following + ", uid=" + uid + "]";
+				+ posts + ", followers=" + followers + ", following=" + following + ", uid=" + uid + ", profilePicture="
+				+ profilePicture + "]";
 	}
-	
-	
 
 }

@@ -3,46 +3,39 @@ package com.UserProfile.controllerTest;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import com.UserProfile.controller.ProfileController;
-import com.UserProfile.dao.ProfileDAO;
 import com.UserProfile.entity.UserProfile;
 import com.UserProfile.service.ProfileService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 
-import org.springframework.http.MediaType;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class UserProfileControllerTest {
 
     private MockMvc mockMvc;
 
     @Mock
     private ProfileService profileService;
-    
-    @Mock
-    private ProfileDAO profileDao;
 
     @InjectMocks
     private ProfileController userProfileController;
@@ -50,7 +43,7 @@ public class UserProfileControllerTest {
     ObjectMapper objectMapper = new ObjectMapper();
     ObjectWriter objectWriter = objectMapper.writer();
 
-    @BeforeClass
+    @BeforeAll
     public static void init() {
         System.out.println("Before test");
         System.out.println("Started test: " + new Date());
@@ -61,68 +54,100 @@ public class UserProfileControllerTest {
         MockitoAnnotations.openMocks(this);
         mockMvc = MockMvcBuilders.standaloneSetup(userProfileController).build();
     }
-    
+
     @Test
     public void testGetUserProfiles() throws Exception {
-        // Arrange
         List<UserProfile> mockProfiles = Arrays.asList(
-                new UserProfile(1, "John Doe", "Johnathan Doe", "Software Developer", 50, 100, 200, 123),
-                new UserProfile(2, "Jane Doe", "Jane Doe", "Product Manager", 30, 150, 250, 124)
+                new UserProfile(1L, "JohnDoe", "Johnathan Doe", "Software Developer", 50, 100, 200, 123, null),
+                new UserProfile(2L, "JaneDoe", "Jane Doe", "Product Manager", 30, 150, 250, 124, null)
         );
 
         when(profileService.getUserProfiles()).thenReturn(mockProfiles);
 
-        // Act & Assert
         mockMvc.perform(get("/userprofile/profiles")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(content().json("[" +
-                        "{\"pid\":1,\"uname\":\"John Doe\",\"fullName\":\"Johnathan Doe\",\"bio\":\"Software Developer\",\"posts\":50,\"followers\":100,\"following\":200,\"uid\":123}," +
-                        "{\"pid\":2,\"uname\":\"Jane Doe\",\"fullName\":\"Jane Doe\",\"bio\":\"Product Manager\",\"posts\":30,\"followers\":150,\"following\":250,\"uid\":124}" +
-                        "]"));
+                .andExpect(content().json(objectWriter.writeValueAsString(mockProfiles)));
     }
-    
+
     @Test
-    public void testGetUserProfile() throws Exception {
-        // Arrange
-        UserProfile mockProfile =
-                new UserProfile(1, "John Doe", "Johnathan Doe", "Software Developer", 50, 100, 200, 123);
+    public void testGetUserProfileById() throws Exception {
+        UserProfile mockProfile = new UserProfile(1L, "JohnDoe", "Johnathan Doe", "Software Developer", 50, 100, 200, 123, null);
 
         when(profileService.getUserProfile(1L)).thenReturn(mockProfile);
 
-        // Act & Assert
         mockMvc.perform(get("/userprofile/profileid/{pid}", 1L)
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(content().json(
-                        "{\"pid\":1,\"uname\":\"John Doe\",\"fullName\":\"Johnathan Doe\",\"bio\":\"Software Developer\",\"posts\":50,\"followers\":100,\"following\":200,\"uid\":123}"));
+                .andExpect(content().json(objectWriter.writeValueAsString(mockProfile)));
     }
 
-    
     @Test
     public void testGetUserProfileByUsername() throws Exception {
-        // Arrange
-        UserProfile mockProfile = new UserProfile(1, "John Doe", "Johnathan Doe", "Software Developer", 50, 100, 200, 123);
+        UserProfile mockProfile = new UserProfile(1L, "JohnDoe", "Johnathan Doe", "Software Developer", 50, 100, 200, 123, null);
 
-        when(profileService.getUserProfileByUname("John Doe")).thenReturn(mockProfile);
+        when(profileService.getUserProfileByUname("JohnDoe")).thenReturn(mockProfile);
 
-        // Act & Assert
-        mockMvc.perform(get("/userprofile/{uname}", "John Doe")
+        mockMvc.perform(get("/userprofile/{uname}", "JohnDoe")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(content().json(
-                        "{\"pid\":1,\"uname\":\"John Doe\",\"fullName\":\"Johnathan Doe\",\"bio\":\"Software Developer\",\"posts\":50,\"followers\":100,\"following\":200,\"uid\":123}"));
+                .andExpect(content().json(objectWriter.writeValueAsString(mockProfile)));
     }
 
     @Test
-    public void addTest() {
-        System.out.println("Add test");
-        long result = ProfileController.add(4, 6);
-        long expected = 10;
-        Assert.assertEquals(expected, result);
+    public void testAddUserProfile() throws Exception {
+        UserProfile mockUserProfile = new UserProfile();
+        mockUserProfile.setUname("JohnDoe");
+        mockUserProfile.setBio("New bio");
+
+        // Use when(...).thenReturn(...) instead of doNothing()
+        when(profileService.addUserProfile(any(UserProfile.class)))
+            .thenReturn(mockUserProfile);
+
+        mockMvc.perform(post("/userprofile/addProfileInfo")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"username\":\"JohnDoe\", \"bio\":\"New bio\"}"))
+                .andExpect(status().isCreated());
+
+        verify(profileService, times(1)).addUserProfile(any(UserProfile.class));
     }
 
-    @AfterClass
+
+    @Test
+    public void testUpdateUserProfileBio() throws Exception {
+        UserProfile mockUserProfile = new UserProfile();
+        mockUserProfile.setUname("JohnDoe");
+        mockUserProfile.setBio("Updated bio");
+
+        when(profileService.updateUserProfileBio(anyString(), anyString())).thenReturn(mockUserProfile);
+
+        mockMvc.perform(patch("/userprofile/update-bio")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"uname\":\"JohnDoe\", \"bio\":\"Updated bio\"}"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("User bio updated successfully"));
+
+        verify(profileService, times(1)).updateUserProfileBio("JohnDoe", "Updated bio");
+    }
+
+
+
+
+    @Test
+    public void testDeleteUserProfileByUname() throws Exception {
+        // No need to use doNothing() if the method is void, just verify the call
+        doAnswer(invocation -> null).when(profileService).deleteUserProfileByUname("JohnDoe");
+
+        mockMvc.perform(delete("/userprofile/username/{uname}", "JohnDoe"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("UserProfile deleted having username JohnDoe"));
+
+        // Verify method was called
+        verify(profileService, times(1)).deleteUserProfileByUname("JohnDoe");
+    }
+
+
+    @AfterAll
     public static void clean() {
         System.out.println("After test");
         System.out.println("Ended test: " + new Date());
