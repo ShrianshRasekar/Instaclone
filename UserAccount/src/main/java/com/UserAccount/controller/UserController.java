@@ -25,6 +25,9 @@ import com.UserAccount.exception.UserDetailAlreadyExist;
 import com.UserAccount.pojo.User;
 import com.UserAccount.service.UserService;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
+
 @RestController
 @RequestMapping("/user")
 @CrossOrigin(origins = "http://localhost:3000")
@@ -43,16 +46,27 @@ public class UserController {
 		return ResponseEntity.of(Optional.of(userService.getUsers()));
 
 	}
-
+	
+	int retryCount=1;
 	@GetMapping(path="/userid/{uid}",produces=MediaType.APPLICATION_JSON_VALUE)
+//	@CircuitBreaker(name="userProfileBreaker",fallbackMethod = "profileServiceFallback")
+	@Retry(name="userProfileBreaker",fallbackMethod = "profileServiceFallback")
 	public User getUser(@PathVariable Long uid) {
 		/*
 		 * User user=userService.getUser(uid); if(user==null) { return
 		 * ResponseEntity.status(HttpStatus.NOT_FOUND).build(); } return
 		 * ResponseEntity.of(Optional.of(user));
 		 */
+		logger.info("Retry Count :-> "+retryCount);
+		++retryCount;
 		logger.info("Get user with id "+uid);
 		return userService.getUser(uid);
+	}	
+	
+	public User profileServiceFallback(Long uid, Exception ex) {
+		logger.info("Fallback executed because service is down ",ex.getMessage());
+		User user=new User(1,"dummy","Dummy name","dummy@mailcom","password",null);
+		return user;
 	}
 
 	@GetMapping(path="/{uname}",produces=MediaType.APPLICATION_JSON_VALUE)

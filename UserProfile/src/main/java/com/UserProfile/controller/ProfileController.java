@@ -1,192 +1,250 @@
 package com.UserProfile.controller;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.UUID;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
-import com.UserProfile.exception.ProfileDetailAlreadyExist;
+import com.UserProfile.entity.ProfilePicture;
 import com.UserProfile.entity.UserProfile;
+import com.UserProfile.exception.ProfileDetailAlreadyExist;
 import com.UserProfile.service.ProfileService;
 
+import jakarta.annotation.PostConstruct;
 
 @RestController
 @RequestMapping("/userprofile")
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "http://localhost:3000") // Configurable CORS
+@EnableCaching
 public class ProfileController {
+
 	@Autowired
 	private ProfileService profileService;
+
+	private static final String UPLOAD_DIR = System.getProperty("user.dir") + File.separator + "uploads";
 	
-	Logger logger = LoggerFactory.getLogger(ProfileController.class);
+	private final String uploadDir = "uploads/";
 
-
-	// ALL GET
-	// requests------------------------------------------------------------------------***GET**------------
-	@GetMapping(path="/profiles",produces=MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<List<UserProfile>> getUserProfiles() {
-		logger.info("Getting all users");
-		return ResponseEntity.of(Optional.of(profileService.getUserProfiles()));
-
+	static {
+		File directory = new File(UPLOAD_DIR);
+		if (!directory.exists()) {
+			directory.mkdirs();
+		}
 	}
 
-	@GetMapping(path="/profileid/{pid}",produces=MediaType.APPLICATION_JSON_VALUE)
-	public UserProfile getUserProfile(@PathVariable Long pid) {
-		/*
-		 * UserProfile user=profileService.getUserProfile(uid); if(user==null) { return
-		 * ResponseEntity.status(HttpStatus.NOT_FOUND).build(); } return
-		 * ResponseEntity.of(Optional.of(user));
-		 */
-		logger.info("Get user with id "+pid);
-		return profileService.getUserProfile(pid);
-	}
-	
-	@GetMapping(path="/{uname}",produces=MediaType.APPLICATION_JSON_VALUE)
-	public UserProfile getUserProfileByUsername(@PathVariable String uname) {
-		/*
-		 * UserProfile user=profileService.getUserProfile(uid); if(user==null) { return
-		 * ResponseEntity.status(HttpStatus.NOT_FOUND).build(); } return
-		 * ResponseEntity.of(Optional.of(user));
-		 */
-		logger.info("Get user with uname "+uname);
-		return profileService.getUserProfileByUname(uname);
+	private static final Logger logger = LoggerFactory.getLogger(ProfileController.class);
+
+	@GetMapping(path = "/profiles", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<List<UserProfile>> getAllUserProfiles() {
+		logger.info("Fetching all user profiles");
+		List<UserProfile> profiles = profileService.getUserProfiles();
+		return profiles.isEmpty() ? ResponseEntity.noContent().build() : ResponseEntity.ok(profiles);
 	}
 
-	
-	/*
-	 * @GetMapping("/{uname}") public ResponseEntity<List<String>>
-	 * isUserProfilenameExist(@Validated @PathVariable String uname) { List<String>
-	 * usernames = profileService.isUserProfilenameExist(uname);
-	 * 
-	 * return ResponseEntity.of(Optional.of(usernames)); }
-	 * 
-	 * @GetMapping("/AllUserProfilenames") public ResponseEntity<List<String>>
-	 * getAllUserProfilenames() { return
-	 * ResponseEntity.of(Optional.of(profileService.getAllUserProfilenames())); }
-	 */
-	 
+	@GetMapping(path = "/profileid/{pid}", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Cacheable(key = "#pid", value = "UserProfile")
+	public ResponseEntity<UserProfile> getUserProfileById(@PathVariable Long pid) {
+		logger.info("Fetching user profile with ID: {}", pid);
 
-	// -----------------------------------------------------------------------------------------------------LOGIN
-	// REQUESTS---------
-	//
-	// using pathvariable
-	// http://localhost:8000/user/login/me@15/me1115
-	/*
-	 * @GetMapping("/login/{uname}/{password}") public ResponseEntity<UserProfile>
-	 * getUserProfileForLogin(@Validated @PathVariable String
-	 * uname, @Validated @PathVariable String password) { UserProfile user =
-	 * profileService.getUserProfileByUnameAndPassword(uname, password); if (user ==
-	 * null) { return ResponseEntity.status(HttpStatus.NOT_FOUND).build(); } return
-	 * ResponseEntity.of(Optional.of(user));
-	 * 
-	 * }
-	 */
+		UserProfile userProfile = profileService.getUserProfile(pid);
 
-	/*
-	 * // http://localhost:8000/user/login/user?uname=me@15&password=me1115
-	 * 
-	 * @GetMapping("/login/user") public ResponseEntity<String>
-	 * getUserProfileForLoginRp(@Validated @RequestParam String
-	 * uname, @Validated @RequestParam String password) { String s =
-	 * "Login Successful"; // String f="Login Failed!! Enter Correct Details";
-	 * profileService.getUserProfileByUnameAndPassword(uname, password); return
-	 * ResponseEntity.of(Optional.of(s));
-	 * 
-	 * }
-	 */
+		if (userProfile == null) {
+			return ResponseEntity.notFound().build();
+		}
 
-	// ALL POST
-	// requests-----------------------------------------------------------------------***POST**-----SIGNUP------
+		// Set profile picture URL if exists
+		if (userProfile.getProfilePicture1() != null) {
+			String imageUrl = "/userprofile/profilePicture/" + userProfile.getUname();
+			userProfile.getProfilePicture1().setFilePath(imageUrl);
+		}
+
+		return ResponseEntity.ok(userProfile);
+	}
+
+	@GetMapping(path = "/uname/{uname}", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Cacheable(key = "#uname", value = "UserProfile", unless = "#result?.body?.followers != null && #result.body.followers > 200")
+	public ResponseEntity<UserProfile> getUserProfileByUsername(@PathVariable String uname) {
+		logger.info("Fetching user profile with username: {}", uname);
+
+		UserProfile user = profileService.getUserProfileByUname(uname);
+
+		if (user == null) {
+			return ResponseEntity.notFound().build();
+		}
+
+		// Set profile picture URL if exists
+		if (user.getProfilePicture1() != null) {
+			String imageUrl ="/userprofile/getImage/" +user.getProfilePicture1().getFileName();
+			user.getProfilePicture1().setFilePath(imageUrl);
+		}
+
+		return ResponseEntity.ok(user);
+	}
+
 	@PostMapping("/addProfileInfo")
-	public ResponseEntity<String> addUserProfile(@Validated @RequestBody UserProfile userProfile) {
-		/*
-		 * String s="Signup Successful"; String
-		 * f="Something went Wrong, Please try again"; UserProfile u=null; try {
-		 */
-		String s = "Adding Profile-Info Successful";
-		if(profileService.isUserProfilenameExistAlready(userProfile.getUname())) {
-			throw new ProfileDetailAlreadyExist("UserProfile already exist with username " + userProfile.getUname());
+	public ResponseEntity<String> createUserProfile(@RequestParam("file") MultipartFile file,
+			@RequestParam("uname") String uname, @RequestParam("fullName") String fullName,
+			@RequestParam("bio") String bio, @RequestParam("posts") int posts, @RequestParam("followers") int followers,
+			@RequestParam("following") int following, @RequestParam(value = "uid", required = false) Integer uid) { // Made
+																													// uid
+																													// Optional
+
+		if (profileService.isUserProfilenameExistAlready(uname)) {
+			throw new ProfileDetailAlreadyExist("UserProfile already exists with username " + uname);
 		}
+
+		// Validate file type
+		List<String> allowedTypes = Arrays.asList("image/jpeg", "image/png", "image/gif", "image/jpg");
+		if (!allowedTypes.contains(file.getContentType())) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid file type! Only JPG, PNG, GIF allowed.");
+		}
+
 		try {
-		profileService.addUserProfile(userProfile);
-		}catch (Exception e) {
-			return ResponseEntity.status(400).body("Bad request "+e.getMessage());
+			// Define upload directory
+			String uploadDir = System.getProperty("user.dir") + "/uploads";
+			Files.createDirectories(Paths.get(uploadDir)); // Creates directory if not exists
+
+			// Generate unique file name
+			String uniqueFileName = file.getOriginalFilename();
+			String filePath = uploadDir + "/" + uniqueFileName;
+
+			// Save file securely
+			Path destinationPath = Paths.get(filePath);
+			Files.copy(file.getInputStream(), destinationPath, StandardCopyOption.REPLACE_EXISTING);
+
+			// Create ProfilePicture entity
+			ProfilePicture profilePicture = new ProfilePicture();
+			profilePicture.setFileName(file.getOriginalFilename());
+			profilePicture.setFilePath(filePath);
+			profilePicture.setFileType(file.getContentType());
+
+			// Save profile picture first
+			profileService.saveProfilePicture(profilePicture);
+
+			// Set uid to null if not provided
+			if (uid == null) {
+				uid = 0; // You can also keep it `null` if the database allows it
+			}
+
+			// Create UserProfile entity
+			UserProfile userProfile = new UserProfile(uid, uname, fullName, bio, posts, followers, following, uid,
+					profilePicture);
+
+			// Save user profile
+			profileService.addUserProfile(userProfile);
+
+			return ResponseEntity.ok("Profile added successfully with image: " + filePath);
+
+		} catch (IOException e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body("Failed to upload file: " + e.getMessage());
 		}
-		return ResponseEntity.status(HttpStatus.CREATED).body(s);
-		/*
-		 * } catch (Exception e) { // TODO: handle exception e.printStackTrace(); return
-		 * ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(f); }
-		 */
-
 	}
 
-	@PostMapping(path="/addUserProfiles",produces=MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<String> addUserProfiles(@Validated @RequestBody List<UserProfile> ls) {
-		profileService.addUserProfiles(ls);
-		String s = "UserProfiles added";
-		return ResponseEntity.status(HttpStatus.CREATED).body(s);
+	@GetMapping("/getImage/{fileName}")
+    public ResponseEntity<Resource> getProfilePicture(@PathVariable String fileName) {
+        try {
+            Path filePath = Paths.get(uploadDir).resolve(fileName).normalize();
+            Resource resource = new UrlResource(filePath.toUri());
 
+            if (!resource.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_JPEG)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
+                    .body(resource);
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+	@PostMapping(path = "/addUserProfiles", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<String> createMultipleProfiles(@Validated @RequestBody List<UserProfile> users) {
+		profileService.addUserProfiles(users);
+		logger.info("User profiles added successfully");
+		return ResponseEntity.status(HttpStatus.CREATED).body("UserProfiles added");
 	}
 
-	// ALL PUT
-	// requests--------------------------------------------------------------------------***PUT**----------
-	@PutMapping(path="/updateUserProfile",produces=MediaType.APPLICATION_JSON_VALUE)
-	public ResponseEntity<String> updateUserProfile(@Validated @RequestBody UserProfile UserProfile) {
-		String s = "UserProfiles updated";
-		profileService.updateUserProfile(UserProfile);
-		return ResponseEntity.status(HttpStatus.CREATED).body(s);
-
+	@PutMapping(path = "/updateUserProfile", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<UserProfile> updateUserProfile(@Validated @RequestBody UserProfile userProfile) {
+		UserProfile updatedUser = profileService.updateUserProfile(userProfile);
+		return ResponseEntity.ok(updatedUser);
 	}
-	// ALL Patch
-    // requests-------------------------------------------------------------------------***Patch**-------------
+
 	@PatchMapping("/update-bio")
-    public ResponseEntity<String> updateUserProfileBio(@RequestBody Map<String, String> updates) {
-        String username = updates.get("uname");
-        String bio = updates.get("bio");
+	public ResponseEntity<String> updateUserBio(@RequestBody Map<String, String> updates) {
+		String username = updates.get("uname");
+		String bio = updates.get("bio");
 
-        if (username == null || username.isBlank()) {
-            return ResponseEntity.badRequest().body("Username must be provided");
-        }
+		if (username == null || username.isBlank()) {
+			return ResponseEntity.badRequest().body("Username must be provided");
+		}
+		if (bio == null || bio.isBlank()) {
+			return ResponseEntity.badRequest().body("Bio cannot be empty");
+		}
 
-        // Check if bio is null, empty, or contains only whitespace
-        if (bio == null || bio.isBlank()) {
-            return ResponseEntity.badRequest().body("Bio cannot be empty");
-        }
-
-        // Call service to update bio
-        profileService.updateUserProfileBio(username, bio);
-        return ResponseEntity.ok("User bio updated successfully");
-    }// ALL Delete
-	// requests------------------------------------------------------------------------***Delete**-------------
-	@DeleteMapping("/{pid}")
-	public ResponseEntity<String> deleteUserProfile(@PathVariable Long pid) {
-		profileService.deleteUserProfile(pid);
-		String s = "UserProfile deleted having id " + pid;
-		return ResponseEntity.status(HttpStatus.OK).body(s);
-
+		try {
+			profileService.updateUserProfileBio(username, bio);
+			logger.info("Updated bio for user: {}", username);
+			return ResponseEntity.ok("User bio updated successfully");
+		} catch (Exception e) {
+			logger.error("Error updating bio for user {}: {}", username, e.getMessage());
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to update bio");
+		}
 	}
-	
-	@DeleteMapping("/username/{uname}")
-	public ResponseEntity<String> deleteUserProfileByUname(@PathVariable String uname) {
-		profileService.deleteUserProfileByUname(uname);
-		String s = "UserProfile deleted having id " + uname;
-		return ResponseEntity.status(HttpStatus.OK).body(s);
 
+	@PatchMapping("/addFollowers/{username}/{count}")
+	public ResponseEntity<UserProfile> updateUserFollowers(@PathVariable String username, @PathVariable Long count) {
+		UserProfile updatedUser = profileService.updateUserProfileFollowers(username, count);
+		return ResponseEntity.ok(updatedUser);
+	}
+
+	@DeleteMapping("/{pid}")
+	public ResponseEntity<String> deleteUserProfileById(@PathVariable Long pid) {
+		profileService.deleteUserProfile(pid);
+		logger.info("User profile deleted with ID: {}", pid);
+		return ResponseEntity.ok("UserProfile deleted having ID " + pid);
+	}
+
+	@DeleteMapping("/username/{uname}")
+	@CacheEvict(key = "#uname", value = "UserProfile")
+	public ResponseEntity<String> deleteUserProfileByUsername(@PathVariable String uname) {
+		profileService.deleteUserProfileByUname(uname);
+		logger.info("User profile deleted with username: {}", uname);
+		return ResponseEntity.ok("UserProfile deleted having username " + uname);
+	}
+
+	@Value("${message}")
+	private String message;
+
+	@PostConstruct
+	public void printMessage() {
+		logger.info("Application started at {} - {}", LocalDateTime.now(), "Message Loaded");
 	}
 }
