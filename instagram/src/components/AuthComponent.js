@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './AuthComponent.css'; // Import the new CSS file
 
+
 const AuthComponent = ({ setIsAuthenticated }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [username, setUsername] = useState('');
@@ -52,6 +53,7 @@ const AuthComponent = ({ setIsAuthenticated }) => {
   return (
     <div className="auth-container">
       <div className="auth-box">
+      <img src="/instalogo1.png" alt="App Logo" className="auth-logo" />
         <h2>{isSignUp ? 'Signup' : 'Login'}</h2>
 
         {isSignUp ? (

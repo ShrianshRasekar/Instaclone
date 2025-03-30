@@ -26,7 +26,7 @@
   .auth-button {
     width: 100%;
     padding: 10px;
-    background-color: #61dafb;
+    background-color: #53bdeb;
     border: none;
     color: white;
     font-size: 16px;
@@ -43,7 +43,7 @@
   }
   
   .auth-link {
-    color: #007bff;
+    color: #53bdeb;
     cursor: pointer;
     font-weight: bold;
   }
@@ -52,3 +52,11 @@
     text-decoration: underline;
   }
   
+  .auth-logo {
+  width: 200px; /* Adjust size as needed */
+  height: auto;
+  margin-bottom: 15px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
