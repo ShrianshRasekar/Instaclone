@@ -85,7 +85,7 @@ public class ProfileController {
 		return ResponseEntity.ok(userProfile);
 	}
 
-	@GetMapping(path = "/uname/{uname}", produces = MediaType.APPLICATION_JSON_VALUE)
+	@GetMapping(path = "/{uname}", produces = MediaType.APPLICATION_JSON_VALUE)
 	@Cacheable(key = "#uname", value = "UserProfile", unless = "#result?.body?.followers != null && #result.body.followers > 200")
 	public ResponseEntity<UserProfile> getUserProfileByUsername(@PathVariable String uname) {
 		logger.info("Fetching user profile with username: {}", uname);
