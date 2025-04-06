@@ -246,5 +246,6 @@ public class ProfileController {
 	@PostConstruct
 	public void printMessage() {
 		logger.info("Application started at {} - {}", LocalDateTime.now(), "Message Loaded");
+		logger.info(message);
 	}
 }
