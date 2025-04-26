@@ -4,6 +4,10 @@ package com.Auth_service.service;
 import com.Auth_service.entity.UserCredential;
 import com.Auth_service.repo.UserCredentialRepository;
 
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -15,32 +19,41 @@ public class Authservice {
 
     @Autowired
     private UserCredentialRepository repository;
+    
     @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
     private JWTService jwtService;
 
-    public ResponseEntity<String> saveUser(UserCredential credential) {
-    	boolean userExists = repository.existsByNameAndEmail(credential.getName(), credential.getEmail());
+    public ResponseEntity<?> saveUser(UserCredential credential) {
+        boolean userExists = repository.existsByNameAndEmail(credential.getName(), credential.getEmail());
+
         if (userExists) {
-        	return ResponseEntity.status(HttpStatus.SC_CONFLICT)
-                    .body("User already exists with the same name and email.");
+            return ResponseEntity.status(HttpStatus.SC_CONFLICT)
+                    .body(Map.of("error", "User already exists with the same name and email."));
         }
-    	
+
         credential.setPassword(passwordEncoder.encode(credential.getPassword()));
         repository.save(credential);
-        return ResponseEntity.status(HttpStatus.SC_CREATED)
-                .body("User added to the system.");
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "User added to the system.");
+        response.put("username", credential.getName());
+        response.put("email", credential.getEmail());
+
+        return ResponseEntity.status(HttpStatus.SC_CREATED).body(response);
     }
+
 
     public String generateToken(String username) {
         return jwtService.generateToken(username);
     }
 
-    public void validateToken(String token) {
-        jwtService.validateToken(token);
+    public Date validateToken(String token) {
+        return jwtService.validateToken(token);
     }
-
+    
+	
 
 }
