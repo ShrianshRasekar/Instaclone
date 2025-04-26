@@ -9,7 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.http.HttpStatus;
+import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
+@CrossOrigin(origins = "*") // Or your frontend port
 public class AuthController {
     @Autowired
     private Authservice service;
@@ -31,7 +32,7 @@ public class AuthController {
         try {
             return service.saveUser(user);  // directly return the response
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.SC_INTERNAL_SERVER_ERROR)
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                                  .body(Map.of("error", "An unexpected error occurred"));
         }
     }
@@ -56,14 +57,15 @@ public class AuthController {
 				 * response.put("message", "Authentication successful");
 				 * response.put("username", authRequest.getUsername());
 				 */
-                return  ResponseEntity.status(HttpStatus.SC_CREATED).body(token);
+                return ResponseEntity.ok(token);
+
             } else {
-                return ResponseEntity.status(HttpStatus.SC_UNAUTHORIZED)
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                                      .body(Map.of("error", "Invalid credentials"));
             }
 
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.SC_UNAUTHORIZED)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                                  .body(Map.of("error", "Invalid credentials"));
         }
     }
@@ -78,7 +80,7 @@ public class AuthController {
 
             if (expirationDate == null) {
                 response.put("message", "Token is invalid.");
-                return ResponseEntity.status(HttpStatus.SC_UNAUTHORIZED).body(response);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
             }
 
             Date now = new Date();
@@ -86,7 +88,7 @@ public class AuthController {
 
             if (diffInMillis <= 0) {
                 response.put("message", "Token has expired.");
-                return ResponseEntity.status(HttpStatus.SC_UNAUTHORIZED).body(response);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
             }
 
             long days = TimeUnit.MILLISECONDS.toDays(diffInMillis);
@@ -105,10 +107,10 @@ public class AuthController {
 
         } catch (IllegalArgumentException e) {
             response.put("message", "Malformed token.");
-            return ResponseEntity.status(HttpStatus.SC_BAD_REQUEST).body(response);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
         } catch (Exception e) {
             response.put("message", "Token validation failed.");
-            return ResponseEntity.status(HttpStatus.SC_UNAUTHORIZED).body(response);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
         }
     }
 
