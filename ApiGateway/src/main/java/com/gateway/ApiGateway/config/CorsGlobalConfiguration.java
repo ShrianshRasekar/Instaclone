@@ -1,28 +1,37 @@
 package com.gateway.ApiGateway.config;
 
+import java.util.Arrays;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
-
-import java.util.Arrays;
 
 @Configuration
 public class CorsGlobalConfiguration {
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
+    public CorsWebFilter corsWebFilter() {
+        CorsConfiguration corsConfig = new CorsConfiguration();
 
-        config.setAllowedOrigins(Arrays.asList("*")); // Allow any frontend origin, or specify if needed
-        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("*"));
-        config.setAllowCredentials(true); // If you need cookies or Authorization headers
+        // Only allow specific origin
+        corsConfig.setAllowedOrigins(Arrays.asList("http://localhost:3000")); // Exactly this, no *
+        
+        // Allow any HTTP method (GET, POST, PUT, etc.)
+        corsConfig.addAllowedMethod("*"); 
+        
+        // Allow any headers
+        corsConfig.addAllowedHeader("*");
 
+        // Allow credentials (cookies, tokens)
+        corsConfig.setAllowCredentials(true); 
+
+        // Apply CORS config to all routes
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
+        source.registerCorsConfiguration("/**", corsConfig);
 
-        return source;
+        return new CorsWebFilter(source);
     }
 }
+
