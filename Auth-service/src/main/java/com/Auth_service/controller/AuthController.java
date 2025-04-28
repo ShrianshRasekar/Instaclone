@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
-@CrossOrigin(origins = "*") // Or your frontend port
+//@CrossOrigin(origins = "*") // Or your frontend port
 public class AuthController {
     @Autowired
     private Authservice service;
