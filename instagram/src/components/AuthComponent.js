@@ -1,68 +1,90 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import './AuthComponent.css'; // Import the new CSS file
-
+import './AuthComponent.css';
+import { useNavigate } from 'react-router-dom';
 
 const AuthComponent = ({ setIsAuthenticated }) => {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+const [email, setEmail] = useState('');
+const [password, setPassword] = useState('');
+const [username, setUsername] = useState(''); 
+
+  const navigate = useNavigate();
 
   // Handle login request
   const handleLogin = async () => {
     try {
-      const response = await axios.post('http://localhost:5003/user/token', {
+      const response = await axios.post('http://localhost:5003/auth/token', {
         username,
         password,
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        responseType: 'text', // <--- IMPORTANT: Expect plain text token
       });
 
-      if (response.data.token) {
-        setIsAuthenticated(true);
-        localStorage.setItem('token', response.data.token);
+      const token = response.data; // Backend sends raw token string
+
+      if (token) {
+        // Validate token
+        const validationRes = await axios.get(`http://localhost:5003/auth/validate/${token}`);
+
+        if (validationRes.status === 200 && validationRes.data.message === "Token is valid.") {
+          localStorage.setItem('token', token);
+          setIsAuthenticated(true);
+          navigate("/middleContent"); // redirect after login
+        } else {
+          alert(validationRes.data.message || 'Invalid or expired token');
+        }
       } else {
         alert('Invalid credentials');
       }
     } catch (error) {
-      console.error('Login failed:', error);
-      alert('An error occurred while logging in');
+      console.error('Login failed:', error.response?.data || error.message);
+      alert(error.response?.data?.error || 'An error occurred while logging in');
     }
   };
 
   // Handle signup request
   const handleSignup = async () => {
     try {
-      const response = await axios.post('http://localhost:5003/user/add', {
-        uname: username,
-        fullName,
-        email,
-        password,
-      });
-
-      if (response.data) {
+      const response = await axios.post(
+        'http://localhost:5003/auth/register',
+        {
+          name: username,    // <<== should send username
+          email: email,
+          password: password,
+        },
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+  
+      if (response.status === 201 && response.data.message === "User added to the system.") {
         alert('Signup successful! Please login.');
-        setIsSignUp(false);
+        setIsSignUp(false); // Switch to Login page
+      } else {
+        alert(response.data.message || 'Signup failed. Please try again.');
       }
     } catch (error) {
-      console.error('Signup failed:', error);
-      alert('An error occurred while signing up');
+      console.error('Signup failed:', error.response?.data || error.message);
+      alert(error.response?.data?.message || 'An error occurred while signing up');
     }
   };
+  
 
   return (
     <div className="auth-container">
       <div className="auth-box">
-      <img src="/instalogo1.png" alt="App Logo" className="auth-logo" />
-        <h2>{isSignUp ? 'Signup' : 'Login'}</h2>
+        <img src="/instalogo1.png" alt="App Logo" className="auth-logo" />
+        <h2>{isSignUp ? 'Sign Up' : 'Login'}</h2>
 
         {isSignUp ? (
           <>
             <input
               type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Full Name"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Username"    // not Full Name
               className="auth-input"
             />
             <input
@@ -72,23 +94,34 @@ const AuthComponent = ({ setIsAuthenticated }) => {
               placeholder="Email"
               className="auth-input"
             />
-          </>
-        ) : null}
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              className="auth-input"
+            />
 
-        <input
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder="Username"
-          className="auth-input"
-        />
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
-          className="auth-input"
-        />
+          </>
+        ) : (
+          <>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Username"
+              className="auth-input"
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password"
+              className="auth-input"
+            />
+          </>
+        )}
+
         <button onClick={isSignUp ? handleSignup : handleLogin} className="auth-button">
           {isSignUp ? 'Sign Up' : 'Login'}
         </button>
