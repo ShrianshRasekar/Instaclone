@@ -4,7 +4,6 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/ApiGateway/ApiGateway.iml" filepath="$PROJECT_DIR$/ApiGateway/ApiGateway.iml" />
       <module fileurl="file://$PROJECT_DIR$/Auth-service/Auth-service.iml" filepath="$PROJECT_DIR$/Auth-service/Auth-service.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/Instaclone.iml" filepath="$PROJECT_DIR$/.idea/Instaclone.iml" />
       <module fileurl="file://$PROJECT_DIR$/ServiceRegistry/ServiceRegistry.iml" filepath="$PROJECT_DIR$/ServiceRegistry/ServiceRegistry.iml" />
       <module fileurl="file://$PROJECT_DIR$/UserAccount/UserAccount.iml" filepath="$PROJECT_DIR$/UserAccount/UserAccount.iml" />
       <module fileurl="file://$PROJECT_DIR$/UserProfile/UserProfile.iml" filepath="$PROJECT_DIR$/UserProfile/UserProfile.iml" />

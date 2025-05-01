@@ -94,14 +94,17 @@ public class AuthController {
             long days = TimeUnit.MILLISECONDS.toDays(diffInMillis);
             long hours = TimeUnit.MILLISECONDS.toHours(diffInMillis) % 24;
             long minutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis) % 60;
+            long seconds = TimeUnit.MILLISECONDS.toSeconds(diffInMillis) % 60;
 
             String timeLeft = (days > 0 ? days + " days " : "") +
                               (hours > 0 ? hours + " hours " : "") +
-                              (minutes > 0 ? minutes + " min " : "");
+                              (minutes > 0 ? minutes + " min " : "") +
+                              (seconds > 0 ? seconds + " sec " : "");
 
             response.put("message", "Token is valid.");
             response.put("validTill", expirationDate.toString());
             response.put("timeRemaining", timeLeft.trim());
+            response.put("Token",token);
 
             return ResponseEntity.ok(response);
 
